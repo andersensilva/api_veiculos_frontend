@@ -112,6 +112,18 @@ O front estará disponível em http://localhost:5173 (ou outra porta definida pe
 
     - Se houver modelos vinculados (e carros), exibe opção de excluir todos os modelos e carros vinculados.
 
+## Funcionalidades Adicionais
+1. Rota Pública
+  - /listcarros: permite que qualquer usuário acesse a listagem de carros sem precisar de login.
+
+  - Essa rota consome dados de uma API externa.
+2. CRUD com Login
+  - Para utilizar as funcionalidades de CRUD (Marca, Modelo, Carro) é necessário rodar o backend.
+
+  - Backend disponível em: https://github.com/andersensilva/apiVeiculos
+
+   - Após iniciar o backend, o frontend irá autenticar o usuário via JWT e permitir acesso às rotas protegidas
+
 ## Validações 
   - Todos os formulários possuem validações básicas com Zod.
 
