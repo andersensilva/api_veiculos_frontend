@@ -1,4 +1,5 @@
-import { use, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import { z, ZodError } from "zod";
 import api from "../services/api";
 
 interface CarroDetalhe {
@@ -40,7 +41,16 @@ const Carros = () => {
   const [filterNome, setFilterNome] = useState("");
   const [filterAno, setFilterAno] = useState("");
   const [filterCor, setFilterCor] = useState("");
-  
+  const [editingCarId, setEditingCarId] = useState<number | null>(null);
+
+  // Schema Zod
+  const carroSchema = z.object({
+    modeloId: z.number().min(1, "Selecione um modelo"),
+    ano: z.number().min(1900, "Ano inválido"),
+    combustivel: z.string().nonempty("Informe o combustível"),
+    numPortas: z.number().min(1, "Número de portas inválido"),
+    cor: z.string().nonempty("Informe a cor"),
+  });
 
   const fetchCarros = async () => {
     const res = await api.get<{ cars: CarroDetalhe[] }>("/api/carros-detalhes");
@@ -64,34 +74,77 @@ const Carros = () => {
   const fetchMarcas = async () => {
     const res = await api.get<Marca[]>("/api/marca");
     setMarcas(res.data);
-};
+  };
 
-  const handleCreateCarro = async () => {
-    if (!novoModeloId || !novoAno || !novoCombustivel || !novoPortas || !novoCor || !novoValor) return;
 
-    await api.post("/api/carros", {
-      modelo: {
-        id: novoModeloId
-      },
-      ano: Number(novoAno),
-      combustivel: novoCombustivel,
-      num_portas: Number(novoPortas),
-      cor: novoCor,
-      valor: novoValor,
-    });
 
-    // limpa os campos
-    setNovoModeloId(undefined);
-    setNovoAno("");
-    setNovoCombustivel("");
-    setNovoPortas("");
-    setNovoCor("");
-    setNovoValor("");
-    setIsModalOpen(false);
+  const handleSaveCarro = async () => {
+    try {
+      const parsed = carroSchema.parse({
+        modeloId: novoModeloId,
+        ano: Number(novoAno),
+        combustivel: novoCombustivel,
+        numPortas: Number(novoPortas),
+        cor: novoCor,
+        valor: Number(novoValor) / 100, // converte centavos para reais
+      });
 
-    
+      if (editingCarId) {
+        await api.put(`/api/carros/${editingCarId}`, {
+          modelo: { id: parsed.modeloId },
+          ano: parsed.ano,
+          combustivel: parsed.combustivel,
+          num_portas: parsed.numPortas,
+          cor: parsed.cor,
+        });
+      } else {
+        await api.post("/api/carros", {
+          modelo: { id: parsed.modeloId },
+          ano: parsed.ano,
+          combustivel: parsed.combustivel,
+          num_portas: parsed.numPortas,
+          cor: parsed.cor,
+        });
+      }
 
-    fetchCarros(); // Recarrega a lista
+      // Limpar modal
+      setEditingCarId(null);
+      setNovoModeloId(undefined);
+      setNovoAno("");
+      setNovoCombustivel("");
+      setNovoPortas("");
+      setNovoCor("");
+      setNovoValor("");
+      setIsModalOpen(false);
+      fetchCarros();
+
+    } catch (err) {
+      if (err instanceof ZodError) {
+        // extraindo mensagens do Zod
+        const messages = err.issues.map(issue => issue.message).join("\n");
+        alert(messages);
+      } else {
+        console.error(err);
+      }
+    }
+  };
+
+  const handleEdit = (carro: CarroDetalhe) => {
+    setEditingCarId(carro.id);
+    setNovoModeloId(carro.modelo_id);
+    setNovoAno(carro.ano.toString());
+    setNovoCombustivel(carro.combustivel);
+    setNovoPortas(carro.num_portas.toString());
+    setNovoCor(carro.cor);
+    setNovoValor((carro.valor.replace(/\D/g, "")) || "0");
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm("Tem certeza que deseja excluir este carro?")) {
+      await api.delete(`/api/carros/${id}`);
+      fetchCarros();
+    }
   };
 
 
@@ -105,13 +158,16 @@ const Carros = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">Carros</h2>
-      <button
+      <div className="flex justify-between items-center mb-4">
+        <h2 className="text-2xl font-bold">Carros</h2>
+        <button
           onClick={() => setIsModalOpen(true)}
           className="bg-blue-500 text-white px-4 py-2 rounded"
-      >
+        >
           + Adicionar
-      </button>
+        </button>
+      </div>
+
       {/* Filtros */}
       <div className="flex gap-2 mb-4">
         <input
@@ -148,6 +204,7 @@ const Carros = () => {
             <th className="text-left p-2 border-b">Portas</th>
             <th className="text-left p-2 border-b">Cor</th>
             <th className="text-left p-2 border-b">Valor</th>
+            <th className="text-left p-2 border-b">Ação</th>
           </tr>
         </thead>
         <tbody>
@@ -160,16 +217,32 @@ const Carros = () => {
               <td className="p-2 border-b">{c.num_portas}</td>
               <td className="p-2 border-b">{c.cor}</td>
               <td className="p-2 border-b">{c.valor}</td>
+              <td className="p-2 border-b">
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="bg-yellow-400 text-white px-2 py-1 rounded"
+                    onClick={() => handleEdit(c)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    className="bg-red-500 text-white px-2 py-1 rounded"
+                    onClick={() => handleDelete(c.id)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Modal de criação de carro */}
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow w-96">
-            <h3 className="text-xl font-bold mb-4">Novo Carro</h3>
+            <h3 className="text-xl font-bold mb-4">{editingCarId ? "Editar Carro" : "Novo Carro"}</h3>
 
             <select
               value={novoModeloId ?? ""}
@@ -178,9 +251,7 @@ const Carros = () => {
             >
               <option value="">Selecione modelo</option>
               {modelos.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome} - R${m.valor_fipe}
-                </option>
+                <option key={m.id} value={m.id}>{m.nome}</option>
               ))}
             </select>
 
@@ -191,12 +262,9 @@ const Carros = () => {
             >
               <option value="">Selecione marca</option>
               {marcas.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome_marca}
-                </option>
+                <option key={m.id} value={m.id}>{m.nome_marca}</option>
               ))}
             </select>
-
 
             <input
               type="number"
@@ -230,14 +298,6 @@ const Carros = () => {
               className="border p-2 rounded w-full mb-2"
             />
 
-            <input
-              type="text"
-              placeholder="Valor"
-              value={novoValor}
-              onChange={(e) => setNovoValor(e.target.value)}
-              className="border p-2 rounded w-full mb-4"
-            />
-
             <div className="flex justify-end gap-2">
               <button
                 className="bg-gray-300 px-4 py-2 rounded"
@@ -247,7 +307,7 @@ const Carros = () => {
               </button>
               <button
                 className="bg-blue-500 text-white px-4 py-2 rounded"
-                onClick={handleCreateCarro} // Função que envia os dados para o backend
+                onClick={handleSaveCarro}
               >
                 Salvar
               </button>

@@ -6,6 +6,7 @@ const Sidebar = () => {
     { name: 'Marcas', path: '/marcas' },
     { name: 'Modelos', path: '/modelos' },
     { name: 'Carros', path: '/carros' },
+    { name: 'Lista de Carros', path: '/listcarro' },
   ];
 
   return (

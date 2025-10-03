@@ -3,15 +3,13 @@ import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { NodeGlobalsPolyfillPlugin } from '@esbuild-plugins/node-globals-polyfill'
 
-
-// https://vite.dev/config/
 export default defineConfig({
   plugins: [
     tailwindcss(),
-    react()],
+    react()
+  ],
   optimizeDeps: {
     esbuildOptions: {
-      // Polyfill para Buffer
       define: {
         global: 'globalThis'
       },
@@ -20,6 +18,20 @@ export default defineConfig({
           buffer: true
         })
       ]
+    }
+  },
+  server: {
+    proxy: {
+      "/api/cars_by_brand": {
+        target: "https://wswork.com.br/cars_by_brand.json",
+        changeOrigin: true,
+        rewrite: () => "" 
+      },
+      "/api/cars": {
+        target: "https://wswork.com.br/cars.json",
+        changeOrigin: true,
+        rewrite: () => "" 
+      }
     }
   }
 })

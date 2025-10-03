@@ -26,6 +26,7 @@ const Modelos = () => {
   const [novoNome, setNovoNome] = useState("");
   const [novoValor, setNovoValor] = useState("");
   const [novoMarcaId, setNovoMarcaId] = useState<number | undefined>();
+  const [editingModeloId, setEditingModeloId] = useState<number | null>(null);
 
   const fetchModelos = async () => {
     const res = await api.get<Modelo[]>("/api/modelo");
@@ -37,38 +38,76 @@ const Modelos = () => {
     setMarcas(res.data);
   };
 
-  const handleCreate = async () => {
-    if (!novoMarcaId || !novoNome || !novoValor) return;
-    await api.post("/api/modelo", {
-      nome: novoNome,
-      valor_fipe: Number(novoValor),
-      marca:{
-        id: novoMarcaId
-      } ,
-    });
-    setNovoNome("");
-    setNovoValor("");
-    setNovoMarcaId(undefined);
-    setIsModalOpen(false);
-    fetchModelos();
-  };
-
   useEffect(() => {
     fetchMarcas();
     fetchModelos();
   }, []);
 
   // filtros aplicados
-const modelosFiltrados = modelos.filter((m) => {
-  const matchesNome =
-    !filterNome || m.nome.toLowerCase().includes(filterNome.toLowerCase());
+  const modelosFiltrados = modelos.filter((m) => {
+    const matchesNome =
+      !filterNome || m.nome.toLowerCase().includes(filterNome.toLowerCase());
 
+    const matchesMarca =
+      !filterMarcaId || m.marca?.id === filterMarcaId;
 
-  const matchesMarca =
-    !filterMarcaId || m.marca?.id === filterMarcaId;
+    return matchesNome && matchesMarca;
+  });
 
-  return matchesNome && matchesMarca;
-});
+  const handleSaveModelo = async () => {
+    if (!novoMarcaId || !novoNome || !novoValor) return;
+
+    const payload = {
+      nome: novoNome,
+      valor_fipe: Number(novoValor),
+      marca: { id: novoMarcaId },
+    };
+
+    try {
+      if (editingModeloId) {
+        await api.put(`/api/modelo/${editingModeloId}`, payload);
+      } else {
+        await api.post("/api/modelo", payload);
+      }
+
+      setNovoNome("");
+      setNovoValor("");
+      setNovoMarcaId(undefined);
+      setEditingModeloId(null);
+      setIsModalOpen(false);
+      fetchModelos();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleEdit = (modelo: Modelo) => {
+    setEditingModeloId(modelo.id);
+    setNovoNome(modelo.nome);
+    setNovoValor(modelo.valor_fipe.toString());
+    setNovoMarcaId(modelo.marca.id);
+    setIsModalOpen(true);
+  };
+
+  const handleDelete = async (id: number) => {
+    try {
+      const res = await api.get<number>(`/api/modelo/${id}/check-carros`);
+      const qtd = res.data;
+
+      let confirmMsg = "Tem certeza que deseja excluir este modelo?";
+      if (qtd > 0) {
+        confirmMsg = `Existem ${qtd} carro(s) vinculados a este modelo. Deseja excluir o modelo e todos os carros vinculados?`;
+      }
+
+      if (!window.confirm(confirmMsg)) return;
+
+      await api.delete(`/api/modelo/${id}?cascade=${qtd > 0}`);
+      fetchModelos();
+    } catch (err: any) {
+      alert("Erro ao excluir modelo");
+      console.error(err);
+    }
+  };
 
   return (
     <div>
@@ -115,6 +154,7 @@ const modelosFiltrados = modelos.filter((m) => {
             <th className="text-left p-2 border-b">Nome</th>
             <th className="text-left p-2 border-b">Valor FIPE</th>
             <th className="text-left p-2 border-b">Marca</th>
+            <th className="text-left p-2 border-b">Ação</th>
           </tr>
         </thead>
         <tbody>
@@ -124,16 +164,34 @@ const modelosFiltrados = modelos.filter((m) => {
               <td className="p-2 border-b">{m.nome}</td>
               <td className="p-2 border-b">{m.valor_fipe}</td>
               <td className="p-2 border-b">{m.marca.nome_marca}</td>
+              <td className="p-2 border-b">
+                <div className="flex justify-end gap-2">
+                  <button
+                    className="bg-yellow-400 text-white px-2 py-1 rounded"
+                    onClick={() => handleEdit(m)}
+                  >
+                    Editar
+                  </button>
+                  <button
+                    className="bg-red-500 text-white px-2 py-1 rounded"
+                    onClick={() => handleDelete(m.id)}
+                  >
+                    Excluir
+                  </button>
+                </div>
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* Modal de criação */}
+      {/* Modal de criação/edição */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow w-96">
-            <h3 className="text-xl font-bold mb-4">Novo Modelo</h3>
+            <h3 className="text-xl font-bold mb-4">
+              {editingModeloId ? "Editar Modelo" : "Novo Modelo"}
+            </h3>
             <input
               type="text"
               placeholder="Nome"
@@ -163,13 +221,16 @@ const modelosFiltrados = modelos.filter((m) => {
             <div className="flex justify-end gap-2">
               <button
                 className="bg-gray-300 px-4 py-2 rounded"
-                onClick={() => setIsModalOpen(false)}
+                onClick={() => {
+                  setIsModalOpen(false);
+                  setEditingModeloId(null);
+                }}
               >
                 Cancelar
               </button>
               <button
                 className="bg-blue-500 text-white px-4 py-2 rounded"
-                onClick={handleCreate}
+                onClick={handleSaveModelo}
               >
                 Salvar
               </button>
