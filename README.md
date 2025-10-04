@@ -68,6 +68,78 @@ src/
     ```
 O front estará disponível em http://localhost:5173 (ou outra porta definida pelo Vite).
 
+## 🚀 Frontend em Docker + Proxy Nginx (CORS)
+  - Dentro da pasta do frontend:
+    ```bash
+    # Build da imagem
+      docker build -t api_veiculos_frontend .
+
+    # Subir container
+      docker run -d --name api_veiculos_frontend -p 5000:5000 api_veiculos_frontend
+    ```
+
+## Proxy para contornar CORS
+  - Para consumir arquivos JSON externos (https://wswork.com.br/cars_by_brand.json e https://wswork.com.br/cars.json) sem erro de CORS, configuramos o Nginx dentro do container:
+    ```bash
+        server {
+        listen 5000;
+        server_name _;
+
+        location /api/cars_by_brand.json {
+            proxy_pass https://wswork.com.br/cars_by_brand.json;
+            proxy_set_header Host wswork.com.br;
+            proxy_ssl_server_name on;
+
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, OPTIONS";
+            add_header Access-Control-Allow-Headers "*";
+        }
+
+        location /api/cars.json {
+            proxy_pass https://wswork.com.br/cars.json;
+            proxy_set_header Host wswork.com.br;
+            proxy_ssl_server_name on;
+
+            add_header Access-Control-Allow-Origin *;
+            add_header Access-Control-Allow-Methods "GET, OPTIONS";
+            add_header Access-Control-Allow-Headers "*";
+        }
+
+        location / {
+            root /usr/share/nginx/html;
+            index index.html;
+            try_files $uri /index.html;
+        }
+    }
+    ```
+## Rodando localmente com proxy
+  - Se for rodar o frontend localmente, é necessário descomentar a configuração de proxy no vite.config.ts para contornar o CORS
+    ```bash
+      // server: {
+      //   proxy: {
+      //     "/api/cars_by_brand": {
+      //       target: "https://wswork.com.br/cars_by_brand.json",
+      //       changeOrigin: true,
+      //       rewrite: () => "" 
+      //     },
+      //     "/api/cars": {
+      //       target: "https://wswork.com.br/cars.json",
+      //       changeOrigin: true,
+      //       rewrite: () => "" 
+      //     }
+      //   }
+      // }
+    ````
+  - Depois, basta executar:
+    ```` bash
+    npm run dev
+    ````
+  
+  - O frontend ficará disponível em http://localhost:5173 (ou outra porta definida pelo Vite).
+
+
+
+
 ## Funcionalidades
 1. **CRUD de Carros**
   - Listagem de carros com filtro por modelo, ano e cor.

@@ -20,18 +20,18 @@ export default defineConfig({
       ]
     }
   },
-  server: {
-    proxy: {
-      "/api/cars_by_brand": {
-        target: "https://wswork.com.br/cars_by_brand.json",
-        changeOrigin: true,
-        rewrite: () => "" 
-      },
-      "/api/cars": {
-        target: "https://wswork.com.br/cars.json",
-        changeOrigin: true,
-        rewrite: () => "" 
-      }
-    }
-  }
+  // server: {
+  //   proxy: {
+  //     "/api/cars_by_brand": {
+  //       target: "https://wswork.com.br/cars_by_brand.json",
+  //       changeOrigin: true,
+  //       rewrite: () => "" 
+  //     },
+  //     "/api/cars": {
+  //       target: "https://wswork.com.br/cars.json",
+  //       changeOrigin: true,
+  //       rewrite: () => "" 
+  //     }
+  //   }
+  // }
 })
