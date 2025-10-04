@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { z, ZodError } from "zod";
+
 
 interface Marca {
   id: number;
@@ -13,6 +15,10 @@ const Marcas = () => {
   const [novoNome, setNovoNome] = useState("");
   const [editingMarcaId, setEditingMarcaId] = useState<number | null>(null);
 
+  const marcaSchema = z.object({
+    nome_marca: z.string().min(1, "O nome da marca é obrigatório"),
+  });
+
   const fetchMarcas = async () => {
     const res = await api.get<Marca[]>("/api/marca");
     setMarcas(res.data);
@@ -23,13 +29,22 @@ const Marcas = () => {
   }, []);
 
   const handleCreateOrUpdate = async () => {
-    if (!novoNome.trim()) return;
+    try {
+      marcaSchema.parse({ nome_marca: novoNome }); // valida
+    } catch (err) {
+      if (err instanceof ZodError) {
+        const messages = err.issues.map(issue => issue.message).join("\n");
+        alert(messages);
+        return; // interrompe se inválido
+      } else {
+        console.error(err);
+        return;
+      }
+    }
 
     if (editingMarcaId) {
-      // Atualiza marca existente
       await api.put(`/api/marca/${editingMarcaId}`, { nome_marca: novoNome });
     } else {
-      // Cria nova marca
       await api.post("/api/marca", { nome_marca: novoNome });
     }
 
@@ -38,6 +53,7 @@ const Marcas = () => {
     setIsModalOpen(false);
     fetchMarcas();
   };
+
 
   const handleEdit = (marca: Marca) => {
     setEditingMarcaId(marca.id);

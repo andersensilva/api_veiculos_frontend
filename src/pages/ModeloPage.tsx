@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { z, ZodError } from "zod";
+
+interface Marca {
+  id: number;
+  nome_marca: string;
+}
 
 interface Modelo {
   id: number;
   nome: string;
   valor_fipe: number;
   marca: Marca;
-}
-
-interface Marca {
-  id: number;
-  nome_marca: string;
 }
 
 const Modelos = () => {
@@ -28,6 +29,13 @@ const Modelos = () => {
   const [novoMarcaId, setNovoMarcaId] = useState<number | undefined>();
   const [editingModeloId, setEditingModeloId] = useState<number | null>(null);
 
+  // Schema Zod
+  const modeloSchema = z.object({
+    nome: z.string().min(1, "O nome do modelo é obrigatório"),
+    valor_fipe: z.number().min(1, "O valor FIPE deve ser maior que zero"),
+    marcaId: z.number().min(1, "Selecione uma marca"),
+  });
+
   const fetchModelos = async () => {
     const res = await api.get<Modelo[]>("/api/modelo");
     setModelos(res.data);
@@ -43,19 +51,31 @@ const Modelos = () => {
     fetchModelos();
   }, []);
 
-  // filtros aplicados
   const modelosFiltrados = modelos.filter((m) => {
     const matchesNome =
       !filterNome || m.nome.toLowerCase().includes(filterNome.toLowerCase());
-
-    const matchesMarca =
-      !filterMarcaId || m.marca?.id === filterMarcaId;
-
+    const matchesMarca = !filterMarcaId || m.marca?.id === filterMarcaId;
     return matchesNome && matchesMarca;
   });
 
   const handleSaveModelo = async () => {
-    if (!novoMarcaId || !novoNome || !novoValor) return;
+    // Validar com Zod
+    try {
+      modeloSchema.parse({
+        nome: novoNome,
+        valor_fipe: Number(novoValor),
+        marcaId: novoMarcaId,
+      });
+    } catch (err) {
+      if (err instanceof ZodError) {
+        const messages = err.issues.map((i) => i.message).join("\n");
+        alert(messages);
+        return; // interrompe execução se inválido
+      } else {
+        console.error(err);
+        return;
+      }
+    }
 
     const payload = {
       nome: novoNome,
@@ -146,7 +166,7 @@ const Modelos = () => {
         </select>
       </div>
 
-      {/* Tabela de modelos */}
+      {/* Tabela */}
       <table className="w-full bg-white rounded shadow overflow-hidden">
         <thead className="bg-gray-100">
           <tr>
@@ -185,7 +205,7 @@ const Modelos = () => {
         </tbody>
       </table>
 
-      {/* Modal de criação/edição */}
+      {/* Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded shadow w-96">
